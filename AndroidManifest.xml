@@ -1,0 +1,5 @@
+<application>
+  <meta-data
+    android:name="com.google.android.geo.API_KEY"
+    android:value="AIzaSyAnkQGrkdd6LMSNTcD9v8ProbkKyqTFev8"/>
+</application>
