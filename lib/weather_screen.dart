@@ -42,7 +42,7 @@ Map<String, String> weekDaysTranslation = {
   'Thursday': 'Jueves',
   'Friday': 'Viernes',
   'Saturday': 'Sábado',
-  'Sunday': 'Domingos',
+  'Sunday': 'Domingo',
 };
 
 // Comprobamos si no existe la fecha y agregamos los datos
