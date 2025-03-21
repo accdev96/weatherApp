@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:intl/intl.dart'; // Importar intl
+import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 class WeatherScreen extends StatefulWidget {
   @override
@@ -13,63 +15,79 @@ class _WeatherScreenState extends State<WeatherScreen> {
   String _city = '';
   List<Map<String, dynamic>> _forecast = [];
   String _error = '';
+  LatLng _cityLatLng = LatLng(0.0, 0.0); // Coordenadas predeterminadas (lat, lng)
+
+String _normalizeCityName(String city) {
+  Map<String, String> replacements = {
+    'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ñ': 'n'
+  };
+  city = city.toLowerCase(); // Convertimos a minúsculas para uniformidad
+  replacements.forEach((key, value) {
+    city = city.replaceAll(key, value);
+  });
+  return city;
+}
+
 
   Future<void> _fetchWeather() async {
     final String apiKey = '1bacfbd7cde7607f9441c8e0c8d09a69'; // Sustituir con tu clave API
-    final String url = 'https://api.openweathermap.org/data/2.5/forecast?q=$_city&appid=$apiKey&units=metric&lang=es';
+    final String cityNormalized = _normalizeCityName(_city);
+
+final String url = 'https://api.openweathermap.org/data/2.5/forecast?q=$cityNormalized,ES&appid=$apiKey&units=metric&lang=es';
+final response = await http.get(Uri.parse(url));
+print(response.body);  // Ver la respuesta completa para detectar posibles errores
+
 
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
-        // Filtramos el pronóstico para obtener solo un valor por día
         List<Map<String, dynamic>> dailyForecast = [];
         Map<String, dynamic> dailyData = {};
 
-        // Crear un objeto DateFormat
-        var dateFormat = DateFormat('dd/MM/yyyy'); // Definir el formato de fecha
+        var dateFormat = DateFormat('dd/MM/yyyy');
 
         for (var entry in data['list']) {
           final DateTime dt = DateTime.fromMillisecondsSinceEpoch(entry['dt'] * 1000);
-          final date = dateFormat.format(dt); // Formatear la fecha al formato dd/MM/yyyy
-          
-          // Mapa para traducir los días de la semana de inglés a español
-Map<String, String> weekDaysTranslation = {
-  'Monday': 'Lunes',
-  'Tuesday': 'Martes',
-  'Wednesday': 'Miércoles',
-  'Thursday': 'Jueves',
-  'Friday': 'Viernes',
-  'Saturday': 'Sábado',
-  'Sunday': 'Domingo',
-};
+          final date = dateFormat.format(dt);
 
-// Comprobamos si no existe la fecha y agregamos los datos
-if (!dailyData.containsKey(date)) {
-  // Obtener el nombre del día de la semana en inglés
-  String dayOfWeekEnglish = DateFormat('EEEE').format(dt);
+          Map<String, String> weekDaysTranslation = {
+            'Monday': 'Lunes',
+            'Tuesday': 'Martes',
+            'Wednesday': 'Miércoles',
+            'Thursday': 'Jueves',
+            'Friday': 'Viernes',
+            'Saturday': 'Sábado',
+            'Sunday': 'Domingo',
+          };
 
-  // Traducir el día de la semana al español
-  String dayOfWeekSpanish = weekDaysTranslation[dayOfWeekEnglish] ?? dayOfWeekEnglish;
+          if (!dailyData.containsKey(date)) {
+            String dayOfWeekEnglish = DateFormat('EEEE').format(dt);
+            String dayOfWeekSpanish = weekDaysTranslation[dayOfWeekEnglish] ?? dayOfWeekEnglish;
 
-  dailyData[date] = {
-    'date': date,  // Almacenar la fecha
-    'dayOfWeek': dayOfWeekSpanish, // Día de la semana en español
-    'temp': entry['main']['temp'], // Almacenar la temperatura
-    'description': entry['weather'][0]['description'], // Almacenar la descripción del clima
-    'rain': entry['rain'] != null ? (entry['rain']['3h'] as num).toDouble() : 0.0, // Convertir rain a double (precipitación)
-    'icon': entry['weather'][0]['icon'], // Almacenar el ícono del clima
-  };
-}
+            dailyData[date] = {
+              'date': date,
+              'dayOfWeek': dayOfWeekSpanish,
+              'temp': entry['main']['temp'],
+              'description': entry['weather'][0]['description'],
+              'rain': entry['rain'] != null ? (entry['rain']['3h'] as num).toDouble() : 0.0,
+              'icon': entry['weather'][0]['icon'],
+            };
+          }
         }
 
         dailyForecast = List<Map<String, dynamic>>.from(dailyData.values);
 
+        double lat = data['city']['coord']['lat'];
+        double lon = data['city']['coord']['lon'];
+        _cityLatLng = LatLng(lat, lon);
+
         setState(() {
           _forecast = dailyForecast;
-          _error = '';  // Limpiar el error si la consulta es exitosa
+          _error = '';  
         });
+
       } else {
         setState(() {
           _error = 'Ciudad no encontrada';
@@ -84,31 +102,28 @@ if (!dailyData.containsKey(date)) {
     }
   }
 
-  // Función para obtener el IconData correspondiente con un respaldo
   IconData _getWeatherIcon(String iconCode) {
-    // Mapeo de iconos de OpenWeatherMap a Material Icons
     Map<String, IconData> iconMap = {
-      '01d': Icons.wb_sunny,      // Soleado (día)
-      '01n': Icons.nightlight_round,  // Soleado (noche)
-      '02d': Icons.cloud,         // Nublado (día)
-      '02n': Icons.cloud,         // Nublado (noche)
-      '03d': Icons.cloud,         // Parcialmente nublado (día)
-      '03n': Icons.cloud,         // Parcialmente nublado (noche)
-      '04d': Icons.cloud_outlined, // Muy nublado (día)
-      '04n': Icons.cloud_outlined, // Muy nublado (noche)
-      '09d': Icons.water_drop,    // Lluvia ligera (día)
-      '09n': Icons.water_drop,    // Lluvia ligera (noche)
-      '10d': Icons.umbrella,      // Lluvia moderada (día)
-      '10n': Icons.umbrella,      // Lluvia moderada (noche)
-      '11d': Icons.thunderstorm,  // Tormenta (día)
-      '11n': Icons.thunderstorm,  // Tormenta (noche)
-      '13d': Icons.ac_unit,       // Nieve (día)
-      '13n': Icons.ac_unit,       // Nieve (noche)
-      '50d': Icons.foggy,         // Neblina (día)
-      '50n': Icons.foggy,         // Neblina (noche)
+      '01d': Icons.wb_sunny,
+      '01n': Icons.nightlight_round,
+      '02d': Icons.cloud,
+      '02n': Icons.cloud,
+      '03d': Icons.cloud,
+      '03n': Icons.cloud,
+      '04d': Icons.cloud_outlined,
+      '04n': Icons.cloud_outlined,
+      '09d': Icons.water_drop,
+      '09n': Icons.water_drop,
+      '10d': Icons.umbrella,
+      '10n': Icons.umbrella,
+      '11d': Icons.thunderstorm,
+      '11n': Icons.thunderstorm,
+      '13d': Icons.ac_unit,
+      '13n': Icons.ac_unit,
+      '50d': Icons.foggy,
+      '50n': Icons.foggy,
     };
 
-    // Retornar el IconData correspondiente o un ícono de error si no se encuentra en el mapeo
     return iconMap[iconCode] ?? Icons.error;
   }
 
@@ -157,22 +172,20 @@ if (!dailyData.containsKey(date)) {
                   itemCount: _forecast.length,
                   itemBuilder: (context, index) {
                     final forecast = _forecast[index];
-                    final rain = forecast['rain'] ?? 0.0; // Precipitación
-                    final iconCode = forecast['icon'] ?? ''; // Obtener el código de icono
+                    final rain = forecast['rain'] ?? 0.0;
+                    final iconCode = forecast['icon'] ?? '';
 
                     return Card(
                       child: ListTile(
                         leading: Icon(
-                          _getWeatherIcon(iconCode), // Usamos la función para obtener el IconData
+                          _getWeatherIcon(iconCode),
                           size: 40,
                           color: Colors.blue,
                         ),
                         title: Text(forecast['date']),
-                        subtitle: Text('${forecast['dayOfWeek']}'), // Mostrar el día de la semana
+                        subtitle: Text('${forecast['dayOfWeek']}'),
                         trailing: Text('${forecast['temp']}°C'),
-                        // Solo mostramos el botón para las precipitaciones si existe
                         onTap: rain > 0 ? () {
-                          // Mostrar el valor de precipitación cuando el usuario presiona el item
                           showDialog(
                             context: context,
                             builder: (context) {
@@ -192,12 +205,40 @@ if (!dailyData.containsKey(date)) {
                               );
                             },
                           );
-                        } : null, // Si no hay precipitaciones, no se activa el botón
+                        } : null,
                       ),
                     );
                   },
                 ),
               ),
+            Expanded(
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: _cityLatLng,
+                  initialZoom: 12.0,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                    subdomains: [],
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _cityLatLng,
+                        width: 40,
+                        height: 40,
+                        child: const Icon(
+                          Icons.location_pin,
+                          color: Colors.red,
+                          size: 40,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
