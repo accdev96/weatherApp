@@ -21,11 +21,13 @@ class _WeatherScreenState extends State<WeatherScreen> {
   ); // Coordenadas predeterminadas (lat, lng)
   int _selectedIndex = 0; // Para controlar el índice del BottomNavigationBar
 
+  bool _showTempLayer =
+      true; // Controla la visibilidad de la capa de temperatura
+
   // Métodos para obtener el pronóstico por horas y por el día
   Future<void> _fetchWeather() async {
     final String apiKey =
         '1bacfbd7cde7607f9441c8e0c8d09a69'; // Sustituir con tu clave API
-    //final String cityNormalized = _normalizeCityName(_city);
     final String url =
         'https://api.openweathermap.org/data/2.5/forecast?q=$_city,ES&appid=$apiKey&units=metric&lang=es';
 
@@ -33,7 +35,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print(response.body);
 
         List<Map<String, dynamic>> dailyForecast = [];
         Map<String, dynamic> dailyData = {};
@@ -221,7 +222,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
     return Center(child: Text("Pronóstico por horas (Aún no implementado)"));
   }
 
-  // Vista de información de hoy (A implementar)
+  // Vista de información de hoy (A Implementar)
   Widget _buildTodayView() {
     return Center(
       child: Text("Información del día de hoy (Aún no implementado)"),
@@ -229,40 +230,35 @@ class _WeatherScreenState extends State<WeatherScreen> {
   }
 
   // Vista del mapa
-  // Vista del mapa
   Widget _buildMapView() {
     return FlutterMap(
       options: MapOptions(
         initialCenter: _cityLatLng, // Coordenadas de la ciudad
         initialZoom: 12.0, // Nivel de zoom inicial
+        maxZoom: 10.0,
+        minZoom: 5.0
       ),
       children: [
-        // Capa de temperatura de OpenWeatherMap
-        TileLayer(
-          urlTemplate:
-              "https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=1bacfbd7cde7607f9441c8e0c8d09a69", // URL de la capa de temperatura
-          subdomains: [
-            'a',
-            'b',
-            'c',
-          ], // Subdominios para distribuir las solicitudes de tiles
-        ),
-        MarkerLayer(
-          markers: [
-            Marker(
-              point: _cityLatLng, // Ubicación de la ciudad
-              width: 40,
-              height: 40,
-              child: const Icon(
-                Icons.location_pin,
-                color: Colors.red,
-                size: 40,
-              ),
-            ),
-          ],
-        ),
+        if (_showTempLayer) // Mostrar capa de temperatura si está activa
+          TileLayer(
+            urlTemplate:
+                "https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=1bacfbd7cde7607f9441c8e0c8d09a69", // URL de la capa de temperatura
+            subdomains: [
+              'a',
+              'b',
+              'c',
+            ], // Subdominios para distribuir las solicitudes de tiles
+          ),
+        // Puedes agregar más capas aquí según lo que quieras mostrar
       ],
     );
+  }
+
+  // Botón para alternar capas
+  void _toggleLayer() {
+    setState(() {
+      _showTempLayer = !_showTempLayer;
+    });
   }
 
   @override
@@ -271,6 +267,18 @@ class _WeatherScreenState extends State<WeatherScreen> {
       appBar: AppBar(
         title: const Text('Weather App'),
         backgroundColor: Colors.blue,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _showTempLayer ? Icons.remove : Icons.add,
+              size: 30, // Ajustar el tamaño del icono
+              color:
+                  Colors
+                      .white, // Asegurarse de que el color del icono sea visible
+            ),
+            onPressed: _toggleLayer, // Cambiar capa al presionar
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
