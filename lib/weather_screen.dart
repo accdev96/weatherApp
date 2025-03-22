@@ -14,6 +14,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
   final TextEditingController _controller = TextEditingController();
   String _city = '';
   List<Map<String, dynamic>> _forecast = [];
+  List<Map<String, dynamic>> _hourlyForecast = [];
+
   String _error = '';
   LatLng _cityLatLng = LatLng(
     0.0,
@@ -57,15 +59,109 @@ class _WeatherScreenState extends State<WeatherScreen> {
             'Sunday': 'Domingo',
           };
 
+          List<Map<String, dynamic>> hourlyForecast = [];
+          Map<String, Map<String, dynamic>> groupedForecast = {};
+
+          for (var entry in data['list']) {
+            final DateTime dt = DateTime.fromMillisecondsSinceEpoch(
+              entry['dt'] * 1000,
+            );
+            final String date = DateFormat('dd/MM/yyyy').format(dt);
+            final String hour = DateFormat('HH:mm').format(dt);
+
+            final double temp =
+                entry['main']['temp'] is num
+                    ? (entry['main']['temp'] as num).toDouble()
+                    : 0.0;
+
+            final double temp_min =
+                entry['main']['temp_min'] is num
+                    ? (entry['main']['temp_min'] as num).toDouble()
+                    : 0.0;
+
+            final double temp_max =
+                entry['main']['temp_max'] is num
+                    ? (entry['main']['temp_max'] as num).toDouble()
+                    : 0.0;
+
+            final double pop =
+                entry.containsKey('pop')
+                    ? (entry['pop'] is num ? (entry['pop'] as num) * 100 : 0.0)
+                    : 0.0;
+
+            final int humidity =
+                entry['main']['humidity'] is int
+                    ? entry['main']['humidity']
+                        as int 
+                    : 0;
+
+            final String description = entry['weather'][0]['description'];
+            final String icon = entry['weather'][0]['icon'];
+
+            if (!groupedForecast.containsKey(date)) {
+              groupedForecast[date] = {
+                'date': date,
+                'temp': temp,
+                'temp_min': temp_min,
+                'temp_max': temp_max,
+                'pop': pop,
+                'description': description,
+                'humidity': humidity,
+                'icon': icon,
+              };
+            } else {
+              groupedForecast[date]!['temp_min'] =
+                  (temp_min < groupedForecast[date]!['temp_min'])
+                      ? temp_min
+                      : groupedForecast[date]!['temp_min'];
+              groupedForecast[date]!['temp_max'] =
+                  (temp_max > groupedForecast[date]!['temp_max'])
+                      ? temp_max
+                      : groupedForecast[date]!['temp_max'];
+              groupedForecast[date]!['pop'] =
+                  (pop > groupedForecast[date]!['pop'])
+                      ? pop
+                      : groupedForecast[date]!['pop'];
+            }
+
+            hourlyForecast.add({
+              'date': date,
+              'hour': hour,
+              'temp': entry['main']['temp'],
+              'temp_max': entry['main']['temp_max'],
+              'temp_min': entry['main']['temp_min'],
+              'pop': pop,
+              'humidity': entry['main']['humidity'],
+              'description': entry['weather'][0]['description'],
+              'icon': entry['weather'][0]['icon'],
+            });
+          }
+
+          dailyForecast = groupedForecast.values.toList();
+
+          setState(() {
+            _hourlyForecast = hourlyForecast;
+          });
+
           if (!dailyData.containsKey(date)) {
             String dayOfWeekEnglish = DateFormat('EEEE').format(dt);
             String dayOfWeekSpanish =
                 weekDaysTranslation[dayOfWeekEnglish] ?? dayOfWeekEnglish;
+            final double pop =
+                entry.containsKey('pop')
+                    ? (entry['pop'] is num ? (entry['pop'] as num) * 100 : 0.0)
+                    : 0.0;
+            final int popInt =
+                pop == pop.toInt() ? pop.toInt() : pop.toDouble().toInt();
 
             dailyData[date] = {
               'date': date,
               'dayOfWeek': dayOfWeekSpanish,
               'temp': entry['main']['temp'],
+              'temp_max': entry['main']['temp_max'],
+              'temp_min': entry['main']['temp_min'],
+              'pop': popInt,
+              'humidity': entry['main']['humidity'],
               'description': entry['weather'][0]['description'],
               'rain':
                   entry['rain'] != null
@@ -169,7 +265,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
               itemCount: _forecast.length,
               itemBuilder: (context, index) {
                 final forecast = _forecast[index];
-                final rain = forecast['rain'] ?? 0.0;
                 final iconCode = forecast['icon'] ?? '';
 
                 return Card(
@@ -180,34 +275,20 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       color: Colors.blue,
                     ),
                     title: Text(forecast['date']),
-                    subtitle: Text('${forecast['dayOfWeek']}'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '☀️ Máx: ${forecast['temp_max']}°C  🌡️ Mín: ${forecast['temp_min']}°C',
+                        ),
+                        Text('🌧️ Prob. Lluvia: ${forecast['pop']}%'),
+                        Text('💧 Humedad: ${forecast['humidity']}'),
+                        Text(
+                          '📌 ${forecast['description'][0].toUpperCase()}${forecast['description'].substring(1)}',
+                        ),
+                      ],
+                    ),
                     trailing: Text('${forecast['temp']}°C'),
-                    onTap:
-                        rain > 0
-                            ? () {
-                              showDialog(
-                                context: context,
-                                builder: (context) {
-                                  return AlertDialog(
-                                    title: const Text('Precipitaciones'),
-                                    content: Text(
-                                      rain > 0
-                                          ? 'Precipitaciones: $rain mm'
-                                          : 'No hay precipitaciones',
-                                    ),
-                                    actions: <Widget>[
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                        },
-                                        child: const Text('Cerrar'),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-                            }
-                            : null,
                   ),
                 );
               },
@@ -219,7 +300,34 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   // Vista de pronóstico por horas (a implementar)
   Widget _buildHourlyForecastView() {
-    return Center(child: Text("Pronóstico por horas (Aún no implementado)"));
+    return Column(
+      children: <Widget>[
+        if (_error.isNotEmpty)
+          Text(_error, style: TextStyle(color: Colors.red, fontSize: 18)),
+        if (_hourlyForecast.isNotEmpty)
+          Expanded(
+            child: ListView.builder(
+              itemCount: _hourlyForecast.length,
+              itemBuilder: (context, index) {
+                final forecast = _hourlyForecast[index];
+
+                return Card(
+                  child: ListTile(
+                    leading: Icon(
+                      _getWeatherIcon(forecast['icon']),
+                      size: 40,
+                      color: Colors.blue,
+                    ),
+                    title: Text('${forecast['date']} - ${forecast['hour']}'),
+                    subtitle: Text(forecast['description']),
+                    trailing: Text('${forecast['temp']}°C'),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
   }
 
   // Vista de información de hoy (A Implementar)
@@ -236,7 +344,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
         initialCenter: _cityLatLng, // Coordenadas de la ciudad
         initialZoom: 12.0, // Nivel de zoom inicial
         maxZoom: 10.0,
-        minZoom: 5.0
+        minZoom: 5.0,
       ),
       children: [
         if (_showTempLayer) // Mostrar capa de temperatura si está activa
