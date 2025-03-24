@@ -327,19 +327,32 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   // Construir vista de pronóstico diario
   Widget _buildForecastView() {
-    return Column(
-      children: <Widget>[
-        if (_error.isNotEmpty)
-          Text(_error, style: TextStyle(color: Colors.red, fontSize: 18)),
-        if (_forecast.isNotEmpty)
-          Expanded(
-            child: ListView.builder(
-              itemCount: _forecast.length,
-              itemBuilder: (context, index) {
-                final forecast = _forecast[index];
-                final iconCode = forecast['icon'] ?? '';
+  return Column(
+    children: <Widget>[
+      if (_error.isNotEmpty)
+        Text(_error, style: TextStyle(color: Colors.red, fontSize: 18)),
+      if (_forecast.isNotEmpty)
+        Expanded(
+          child: ListView.builder(
+            itemCount: _forecast.length,
+            itemBuilder: (context, index) {
+              final forecast = _forecast[index];
+              final iconCode = forecast['icon'] ?? '';
 
-                return Card(
+              return GestureDetector(
+                onTap: () {
+                  // Filtra los datos de previsión por horas
+                  final hourlyData = _hourlyForecast.where((entry) => entry['date'] == forecast['date']).toList();
+
+                  // Navega a la nueva pantalla para mostrar la previsión por horas
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => _buildForecastHours(context, forecast['date'], hourlyData),
+                    ),
+                  );
+                },
+                child: Card(
                   child: ListTile(
                     leading: Icon(
                       _getWeatherIcon(iconCode),
@@ -362,13 +375,75 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     ),
                     trailing: Text('${forecast['temp']}°C'),
                   ),
+                ),
+              );
+            },
+          ),
+        ),
+    ],
+  );
+}
+
+  
+  Widget _buildForecastHours(BuildContext context, String date, List<Map<String, dynamic>> hourlyData) {
+  return Scaffold(
+    appBar: AppBar(
+      title: Text('Previsión por horas'),
+      bottom: PreferredSize(
+        preferredSize: Size.fromHeight(30),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: Text(
+            'Fecha: $date',
+            style: TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    ),
+    body: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: hourlyData.length,
+              itemBuilder: (context, index) {
+                final hourData = hourlyData[index];
+                final iconCode = hourData['icon'] ?? '';
+                final hour = hourData['hour'];
+
+                return Card(
+                  child: ListTile(
+                    leading: Icon(
+                      _getWeatherIcon(iconCode),
+                      size: 30,
+                      color: Colors.blue,
+                    ),
+                    title: Text('Hora: $hour:00'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('🌡️ Temp: ${hourData['temp'].toStringAsFixed(0)}°C'),
+                        Text('🌧️ Prob. Lluvia: ${hourData['pop'].toStringAsFixed(0)}%'),
+                        Text('💧 Humedad: ${hourData['humidity']}%'),
+                        Text(
+                          '📌 ${hourData['description'][0].toUpperCase()}${hourData['description'].substring(1)}',
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
           ),
-      ],
-    );
-  }
+        ],
+      ),
+    ),
+  );
+}
+
 
  
 
