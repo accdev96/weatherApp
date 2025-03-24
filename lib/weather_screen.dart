@@ -291,11 +291,9 @@ class _WeatherScreenState extends State<WeatherScreen> {
     switch (_selectedIndex) {
       case 0: // Días
         return _buildForecastView();
-      case 1: // Horas
-        return _buildHourlyForecastView();
-      case 2: // Inicio
+      case 1: // Inicio
         return _buildTodayView();
-      case 3: // Mapas
+      case 2: // Mapas
         return _buildMapView();
       default:
         return _buildForecastView();
@@ -372,37 +370,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
     );
   }
 
-  // Vista de pronóstico por horas (a implementar)
-  Widget _buildHourlyForecastView() {
-    return Column(
-      children: <Widget>[
-        if (_error.isNotEmpty)
-          Text(_error, style: TextStyle(color: Colors.red, fontSize: 18)),
-        if (_hourlyForecast.isNotEmpty)
-          Expanded(
-            child: ListView.builder(
-              itemCount: _hourlyForecast.length,
-              itemBuilder: (context, index) {
-                final forecast = _hourlyForecast[index];
-
-                return Card(
-                  child: ListTile(
-                    leading: Icon(
-                      _getWeatherIcon(forecast['icon']),
-                      size: 40,
-                      color: Colors.blue,
-                    ),
-                    title: Text('${forecast['date']} - ${forecast['hour']}'),
-                    subtitle: Text(forecast['description']),
-                    trailing: Text('${forecast['temp']}°C'),
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
-    );
-  }
+ 
 
   // Vista de información de hoy (A Implementar)
   Widget _buildTodayView() {
@@ -411,31 +379,31 @@ class _WeatherScreenState extends State<WeatherScreen> {
     );
   }
 
-  // Vista del mapa
-  Widget _buildMapView() {
-    return FlutterMap(
-      options: MapOptions(
-        initialCenter: _cityLatLng, // Coordenadas de la ciudad
-        initialZoom: 12.0, // Nivel de zoom inicial
-        maxZoom: 10.0,
-        minZoom: 5.0,
+ Widget _buildMapView() {
+  return FlutterMap(
+    options: MapOptions(
+      initialCenter: _cityLatLng, // Coordenadas de la ciudad
+      initialZoom: 12.0, // Nivel de zoom inicial
+      maxZoom: 18.0, // Ajusta el zoom máximo
+      minZoom: 5.0,
+    ),
+    children: [
+      // Capa de mapa base (OpenStreetMap en este caso)
+      TileLayer(
+        urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", // URL de OpenStreetMap
+        // Eliminamos los subdominios
       ),
-      children: [
-        if (_showTempLayer) // Mostrar capa de temperatura si está activa
-          TileLayer(
-            urlTemplate:
-                "https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=1bacfbd7cde7607f9441c8e0c8d09a69", // URL de la capa de temperatura
-            subdomains: [
-              'a',
-              'b',
-              'c',
-            ], // Subdominios para distribuir las solicitudes de tiles
-          ),
-        // Puedes agregar más capas aquí según lo que quieras mostrar
-      ],
-    );
-  }
-
+      
+      // Mostrar capa de temperatura si _showTempLayer es true
+      if (_showTempLayer)
+        TileLayer(
+          urlTemplate:
+              "https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=1bacfbd7cde7607f9441c8e0c8d09a69", // URL de la capa de temperatura
+          subdomains: ['a', 'b', 'c'], // Subdominios para distribuir las solicitudes de tiles (mantén esto solo si es necesario)
+        ),
+    ],
+  );
+}
   // Botón para alternar capas
   void _toggleLayer() {
     setState(() {
@@ -495,9 +463,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                         }
                       },
                       child: Text(
-                        _selectedIndex == 1
-                            ? 'Obtener pronóstico por horas'
-                            : 'Obtener pronóstico semanal',
+                          'Obtener pronóstico semanal',
                       ),
                     ),
                   ),
@@ -526,7 +492,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
             icon: Icon(Icons.calendar_today),
             label: 'Días',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'Horas'),
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
           BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Mapas'),
         ],
