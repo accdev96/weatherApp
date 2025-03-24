@@ -353,7 +353,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '☀️ Máx: ${forecast['temp_max']}°C  🌡️ Mín: ${forecast['temp_min']}°C',
+                          '☀️ Máx: ${forecast['temp_max'].toStringAsFixed(0)}°C  🌡️ Mín: ${forecast['temp_min'].toStringAsFixed(0)}°C',
                         ),
                         Text('🌧️ Prob. Lluvia: ${forecast['pop']}%'),
                         Text('💧 Humedad: ${forecast['humidity']}'),
