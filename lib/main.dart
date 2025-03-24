@@ -4,6 +4,8 @@ import 'weather_screen.dart'; // Asegúrate de que este es el archivo donde tien
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

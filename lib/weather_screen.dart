@@ -91,40 +91,57 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
             final int humidity =
                 entry['main']['humidity'] is int
-                    ? entry['main']['humidity']
-                        as int 
+                    ? entry['main']['humidity'] as int
                     : 0;
+
+            final String city =
+                entry['city'] != null
+                    ? entry['city']['name']
+                    : 'Ciudad no disponible';
 
             final String description = entry['weather'][0]['description'];
             final String icon = entry['weather'][0]['icon'];
 
-            if (!groupedForecast.containsKey(date)) {
-              groupedForecast[date] = {
+            // Agrupamos los datos del pronóstico por ciudad y fecha
+            if (!groupedForecast.containsKey(city)) {
+              groupedForecast[city] =
+                  {}; // Inicializamos el mapa para la ciudad
+            }
+
+            if (!groupedForecast[city]!.containsKey(date)) {
+              groupedForecast[city]![date] = {
                 'date': date,
+                'city': city,
                 'temp': temp,
                 'temp_min': temp_min,
                 'temp_max': temp_max,
                 'pop': pop,
-                'description': description,
                 'humidity': humidity,
+                'description': description,
                 'icon': icon,
               };
             } else {
-              groupedForecast[date]!['temp_min'] =
-                  (temp_min < groupedForecast[date]!['temp_min'])
+              // Actualizamos las temperaturas máximas y mínimas para cada ciudad y fecha
+              // Aseguramos que las temperaturas mínimas y máximas se actualicen correctamente
+              groupedForecast[city]![date]!['temp_min'] =
+                  (temp_min < groupedForecast[city]![date]!['temp_min'])
                       ? temp_min
-                      : groupedForecast[date]!['temp_min'];
-              groupedForecast[date]!['temp_max'] =
-                  (temp_max > groupedForecast[date]!['temp_max'])
+                      : groupedForecast[city]![date]!['temp_min'];
+
+              groupedForecast[city]![date]!['temp_max'] =
+                  (temp_max > groupedForecast[city]![date]!['temp_max'])
                       ? temp_max
-                      : groupedForecast[date]!['temp_max'];
-              groupedForecast[date]!['pop'] =
-                  (pop > groupedForecast[date]!['pop'])
+                      : groupedForecast[city]![date]!['temp_max'];
+
+              // Actualizamos la probabilidad de precipitación si es mayor
+              groupedForecast[city]![date]!['pop'] =
+                  (pop > groupedForecast[city]![date]!['pop'])
                       ? pop
-                      : groupedForecast[date]!['pop'];
+                      : groupedForecast[city]![date]!['pop'];
             }
 
             hourlyForecast.add({
+              'city': city,
               'date': date,
               'hour': hour,
               'temp': entry['main']['temp'],
@@ -137,7 +154,14 @@ class _WeatherScreenState extends State<WeatherScreen> {
             });
           }
 
-          dailyForecast = groupedForecast.values.toList();
+          // Convertimos los pronósticos diarios en una lista de mapas
+          List<Map<String, dynamic>> dailyForecast = [];
+
+          groupedForecast.forEach((city, cityForecasts) {
+            cityForecasts.forEach((date, forecast) {
+              dailyForecast.add(forecast);
+            });
+          });
 
           setState(() {
             _hourlyForecast = hourlyForecast;
@@ -160,6 +184,56 @@ class _WeatherScreenState extends State<WeatherScreen> {
               'temp': entry['main']['temp'],
               'temp_max': entry['main']['temp_max'],
               'temp_min': entry['main']['temp_min'],
+              'pop': popInt,
+              'humidity': entry['main']['humidity'],
+              'description': entry['weather'][0]['description'],
+              'rain':
+                  entry['rain'] != null
+                      ? (entry['rain']['3h'] as num).toDouble()
+                      : 0.0,
+              'icon': entry['weather'][0]['icon'],
+            };
+          } else {
+            // Si ya existe la fecha, actualizamos las temperaturas
+            String dayOfWeekEnglish = DateFormat('EEEE').format(dt);
+            String dayOfWeekSpanish =
+                weekDaysTranslation[dayOfWeekEnglish] ?? dayOfWeekEnglish;
+
+            final double pop =
+                entry.containsKey('pop')
+                    ? (entry['pop'] is num ? (entry['pop'] as num) * 100 : 0.0)
+                    : 0.0;
+
+            final int popInt =
+                pop == pop.toInt() ? pop.toInt() : pop.toDouble().toInt();
+
+            final double newTempMax =
+                entry['main']['temp_max'] is num
+                    ? (entry['main']['temp_max'] as num).toDouble()
+                    : 0.0;
+
+            final double newTempMin =
+                entry['main']['temp_min'] is num
+                    ? (entry['main']['temp_min'] as num).toDouble()
+                    : 0.0;
+
+            // Actualizamos las temperaturas máximas y mínimas si es necesario
+            final double updatedTempMax =
+                newTempMax > dailyData[date]['temp_max']
+                    ? newTempMax
+                    : dailyData[date]['temp_max'];
+
+            final double updatedTempMin =
+                newTempMin < dailyData[date]['temp_min']
+                    ? newTempMin
+                    : dailyData[date]['temp_min'];
+
+            dailyData[date] = {
+              'date': date,
+              'dayOfWeek': dayOfWeekSpanish,
+              'temp': entry['main']['temp'],
+              'temp_max': updatedTempMax,
+              'temp_min': updatedTempMin,
               'pop': popInt,
               'humidity': entry['main']['humidity'],
               'description': entry['weather'][0]['description'],
