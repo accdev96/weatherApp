@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
 class WeatherScreen extends StatefulWidget {
+  const WeatherScreen({super.key});
+
   @override
   _WeatherScreenState createState() => _WeatherScreenState();
 }
@@ -23,13 +25,15 @@ class _WeatherScreenState extends State<WeatherScreen> {
   ); // Coordenadas predeterminadas (lat, lng)
   int _selectedIndex = 0; // Para controlar el índice del BottomNavigationBar
 
-  bool _showTempLayer =
-      true; // Controla la visibilidad de la capa de temperatura
+  bool _showTempLayer = true;
+  bool _showPrecipitationLayer = true;
+
+  Map<String, double> maxTemperaturesPerDay = {};
+  Map<String, double> minTemperaturesPerDay = {};
 
   // Métodos para obtener el pronóstico por horas y por el día
   Future<void> _fetchWeather() async {
-    final String apiKey =
-        '1bacfbd7cde7607f9441c8e0c8d09a69'; // Sustituir con tu clave API
+    final String apiKey = '1bacfbd7cde7607f9441c8e0c8d09a69'; // Clave API
     final String url =
         'https://api.openweathermap.org/data/2.5/forecast?q=$_city,ES&appid=$apiKey&units=metric&lang=es';
 
@@ -38,156 +42,118 @@ class _WeatherScreenState extends State<WeatherScreen> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
-        List<Map<String, dynamic>> dailyForecast = [];
         Map<String, dynamic> dailyData = {};
-
         var dateFormat = DateFormat('dd/MM/yyyy');
+        Map<String, String> weekDaysTranslation = {
+          'Monday': 'Lunes',
+          'Tuesday': 'Martes',
+          'Wednesday': 'Miércoles',
+          'Thursday': 'Jueves',
+          'Friday': 'Viernes',
+          'Saturday': 'Sábado',
+          'Sunday': 'Domingo',
+        };
+
+        List<Map<String, dynamic>> hourlyForecast = [];
+        Map<String, Map<String, dynamic>> groupedForecast = {};
 
         for (var entry in data['list']) {
           final DateTime dt = DateTime.fromMillisecondsSinceEpoch(
             entry['dt'] * 1000,
           );
-          final date = dateFormat.format(dt);
+          final String date = dateFormat.format(dt);
+          final String hour = DateFormat('HH:mm').format(dt);
 
-          Map<String, String> weekDaysTranslation = {
-            'Monday': 'Lunes',
-            'Tuesday': 'Martes',
-            'Wednesday': 'Miércoles',
-            'Thursday': 'Jueves',
-            'Friday': 'Viernes',
-            'Saturday': 'Sábado',
-            'Sunday': 'Domingo',
-          };
+          final double temp = (entry['main']['temp'] as num).toDouble();
+          final double tempMin = (entry['main']['temp_min'] as num).toDouble();
+          final double tempMax = (entry['main']['temp_max'] as num).toDouble();
+          final double windSpeedKmh =
+              (entry['wind']['speed'] as num).toDouble() * 3.6;
+          final double pop =
+              entry.containsKey('pop') ? (entry['pop'] as num) * 100 : 0.0;
+          final int humidity = entry['main']['humidity'] as int;
+          final String description = entry['weather'][0]['description'];
+          final String icon = entry['weather'][0]['icon'];
 
-          List<Map<String, dynamic>> hourlyForecast = [];
-          Map<String, Map<String, dynamic>> groupedForecast = {};
-
-          for (var entry in data['list']) {
-            final DateTime dt = DateTime.fromMillisecondsSinceEpoch(
-              entry['dt'] * 1000,
-            );
-            final String date = DateFormat('dd/MM/yyyy').format(dt);
-            final String hour = DateFormat('HH:mm').format(dt);
-
-            final double temp =
-                entry['main']['temp'] is num
-                    ? (entry['main']['temp'] as num).toDouble()
-                    : 0.0;
-
-            final double temp_min =
-                entry['main']['temp_min'] is num
-                    ? (entry['main']['temp_min'] as num).toDouble()
-                    : 0.0;
-
-            final double temp_max =
-                entry['main']['temp_max'] is num
-                    ? (entry['main']['temp_max'] as num).toDouble()
-                    : 0.0;
-
-            final double pop =
-                entry.containsKey('pop')
-                    ? (entry['pop'] is num ? (entry['pop'] as num) * 100 : 0.0)
-                    : 0.0;
-
-            final int humidity =
-                entry['main']['humidity'] is int
-                    ? entry['main']['humidity']
-                        as int 
-                    : 0;
-
-            final String description = entry['weather'][0]['description'];
-            final String icon = entry['weather'][0]['icon'];
-
-            if (!groupedForecast.containsKey(date)) {
-              groupedForecast[date] = {
-                'date': date,
-                'temp': temp,
-                'temp_min': temp_min,
-                'temp_max': temp_max,
-                'pop': pop,
-                'description': description,
-                'humidity': humidity,
-                'icon': icon,
-              };
-            } else {
-              groupedForecast[date]!['temp_min'] =
-                  (temp_min < groupedForecast[date]!['temp_min'])
-                      ? temp_min
-                      : groupedForecast[date]!['temp_min'];
-              groupedForecast[date]!['temp_max'] =
-                  (temp_max > groupedForecast[date]!['temp_max'])
-                      ? temp_max
-                      : groupedForecast[date]!['temp_max'];
-              groupedForecast[date]!['pop'] =
-                  (pop > groupedForecast[date]!['pop'])
-                      ? pop
-                      : groupedForecast[date]!['pop'];
-            }
-
-            hourlyForecast.add({
+          // Actualizar el pronóstico por día
+          if (!groupedForecast.containsKey(date)) {
+            groupedForecast[date] = {
               'date': date,
-              'hour': hour,
-              'temp': entry['main']['temp'],
-              'temp_max': entry['main']['temp_max'],
-              'temp_min': entry['main']['temp_min'],
+              'temp': temp,
+              'temp_min': tempMin,
+              'temp_max': tempMax,
               'pop': pop,
-              'humidity': entry['main']['humidity'],
-              'description': entry['weather'][0]['description'],
-              'icon': entry['weather'][0]['icon'],
-            });
+              'wind': windSpeedKmh,
+              'description': description,
+              'humidity': humidity,
+              'icon': icon,
+            };
+          } else {
+            groupedForecast[date]!['temp_min'] =
+                tempMin < groupedForecast[date]!['temp_min']
+                    ? tempMin
+                    : groupedForecast[date]!['temp_min'];
+            groupedForecast[date]!['temp_max'] =
+                tempMax > groupedForecast[date]!['temp_max']
+                    ? tempMax
+                    : groupedForecast[date]!['temp_max'];
+            groupedForecast[date]!['pop'] =
+                pop > groupedForecast[date]!['pop']
+                    ? pop
+                    : groupedForecast[date]!['pop'];
           }
 
-          dailyForecast = groupedForecast.values.toList();
-
-          setState(() {
-            _hourlyForecast = hourlyForecast;
+          // Pronóstico por horas
+          hourlyForecast.add({
+            'date': date,
+            'hour': hour,
+            'temp': temp,
+            'temp_max': tempMax,
+            'temp_min': tempMin,
+            'pop': pop,
+            'wind': windSpeedKmh,
+            'humidity': humidity,
+            'description': description,
+            'icon': icon,
           });
 
           if (!dailyData.containsKey(date)) {
             String dayOfWeekEnglish = DateFormat('EEEE').format(dt);
             String dayOfWeekSpanish =
                 weekDaysTranslation[dayOfWeekEnglish] ?? dayOfWeekEnglish;
-            final double pop =
-                entry.containsKey('pop')
-                    ? (entry['pop'] is num ? (entry['pop'] as num) * 100 : 0.0)
-                    : 0.0;
-            final int popInt =
-                pop == pop.toInt() ? pop.toInt() : pop.toDouble().toInt();
 
             dailyData[date] = {
               'date': date,
               'dayOfWeek': dayOfWeekSpanish,
-              'temp': entry['main']['temp'],
-              'temp_max': entry['main']['temp_max'],
-              'temp_min': entry['main']['temp_min'],
-              'pop': popInt,
-              'humidity': entry['main']['humidity'],
-              'description': entry['weather'][0]['description'],
+              'temp': temp,
+              'temp_max':
+                  maxTemperaturesPerDay.containsKey(date)
+                      ? maxTemperaturesPerDay[date]
+                      : null,
+              'temp_min':
+                  minTemperaturesPerDay.containsKey(date)
+                      ? minTemperaturesPerDay[date]
+                      : null,
+              'pop': pop.toInt(),
+              'wind': windSpeedKmh.toStringAsFixed(1),
+              'humidity': humidity,
+              'description': description,
               'rain':
                   entry['rain'] != null
                       ? (entry['rain']['3h'] as num).toDouble()
                       : 0.0,
-              'icon': entry['weather'][0]['icon'],
+              'icon': icon,
             };
           }
         }
 
-        dailyForecast = List<Map<String, dynamic>>.from(dailyData.values);
-
-        double lat =
-            (data['city']['coord']['lat'] is int)
-                ? (data['city']['coord']['lat'] as int).toDouble()
-                : data['city']['coord']['lat'];
-
-        double lon =
-            (data['city']['coord']['lon'] is int)
-                ? (data['city']['coord']['lon'] as int).toDouble()
-                : data['city']['coord']['lon'];
-
+        double lat = (data['city']['coord']['lat'] as num).toDouble();
+        double lon = (data['city']['coord']['lon'] as num).toDouble();
         _cityLatLng = LatLng(lat, lon);
 
         setState(() {
-          _forecast = dailyForecast;
+          _forecast = List<Map<String, dynamic>>.from(dailyData.values);
+          _hourlyForecast = hourlyForecast;
           _error = '';
         });
       } else {
@@ -274,7 +240,9 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       size: 40,
                       color: Colors.blue,
                     ),
-                    title: Text(forecast['date']),
+                    title: Text(
+                      '${forecast['dayOfWeek']} - ${forecast['date']}',
+                    ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -283,12 +251,12 @@ class _WeatherScreenState extends State<WeatherScreen> {
                         ),
                         Text('🌧️ Prob. Lluvia: ${forecast['pop']}%'),
                         Text('💧 Humedad: ${forecast['humidity']}'),
+                        Text('🌬️ Viento: ${forecast['wind']}Km/h'),
                         Text(
                           '📌 ${forecast['description'][0].toUpperCase()}${forecast['description'].substring(1)}',
                         ),
                       ],
                     ),
-                    trailing: Text('${forecast['temp']}°C'),
                   ),
                 );
               },
@@ -320,7 +288,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     ),
                     title: Text('${forecast['date']} - ${forecast['hour']}'),
                     subtitle: Text(forecast['description']),
-                    trailing: Text('${forecast['temp']}°C'),
                   ),
                 );
               },
@@ -339,25 +306,53 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   // Vista del mapa
   Widget _buildMapView() {
+    final initialLatLng = _cityLatLng ?? LatLng(40.4168, -3.7038);
+
     return FlutterMap(
       options: MapOptions(
-        initialCenter: _cityLatLng, // Coordenadas de la ciudad
-        initialZoom: 12.0, // Nivel de zoom inicial
-        maxZoom: 10.0,
-        minZoom: 5.0,
+        initialCenter: initialLatLng, // Coordenadas iniciales
+        initialZoom: 10.0, // Zoom inicial
+        maxZoom: 12.0, // Zoom máximo
+        minZoom: 5.0, // Zoom mínimo
       ),
       children: [
-        if (_showTempLayer) // Mostrar capa de temperatura si está activa
+        // 1. Mapa base (OpenStreetMap)
+        TileLayer(
+          urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+          userAgentPackageName: 'com.example.app',
+        ),
+        // 2. Capa de temperatura de OpenWeatherMap (solo si _showTempLayer es verdadero)
+        if (_showTempLayer)
           TileLayer(
             urlTemplate:
-                "https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=1bacfbd7cde7607f9441c8e0c8d09a69", // URL de la capa de temperatura
-            subdomains: [
-              'a',
-              'b',
-              'c',
-            ], // Subdominios para distribuir las solicitudes de tiles
+                "https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=1bacfbd7cde7607f9441c8e0c8d09a69",
+            userAgentPackageName: 'com.example.app',
           ),
-        // Puedes agregar más capas aquí según lo que quieras mostrar
+        // 3. Capa de precipitaciones de OpenWeatherMap (solo si _showPrecipitationLayer es verdadero)
+        if (_showPrecipitationLayer)
+          TileLayer(
+            urlTemplate:
+                "https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=1bacfbd7cde7607f9441c8e0c8d09a69",
+            userAgentPackageName: 'com.example.app',
+          ),
+        Positioned(
+          top: 20,
+          right: 10,
+          child: FloatingActionButton(
+            onPressed: _toggleLayer, // Cambiar capa al presionar
+            mini: true,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _showTempLayer ? Icons.remove : Icons.add,
+                  size: 10,
+                  color: Colors.white,
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -366,6 +361,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
   void _toggleLayer() {
     setState(() {
       _showTempLayer = !_showTempLayer;
+      _showPrecipitationLayer = !_showPrecipitationLayer;
     });
   }
 
@@ -375,18 +371,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
       appBar: AppBar(
         title: const Text('Weather App'),
         backgroundColor: Colors.blue,
-        actions: [
-          IconButton(
-            icon: Icon(
-              _showTempLayer ? Icons.remove : Icons.add,
-              size: 30, // Ajustar el tamaño del icono
-              color:
-                  Colors
-                      .white, // Asegurarse de que el color del icono sea visible
-            ),
-            onPressed: _toggleLayer, // Cambiar capa al presionar
-          ),
-        ],
+        actions: [],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
