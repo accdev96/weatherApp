@@ -99,6 +99,11 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     ? entry['city']['name']
                     : 'Ciudad no disponible';
 
+            final double wind =
+                entry.containsKey('wind')
+                    ? (entry['wind']['speed'] is num ? (entry['wind']['speed'] as num) * 100 : 0.0)
+                    : 0.0;       
+
             final String description = entry['weather'][0]['description'];
             final String icon = entry['weather'][0]['icon'];
 
@@ -119,6 +124,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                 'humidity': humidity,
                 'description': description,
                 'icon': icon,
+                'wind': wind,
               };
             } else {
               // Actualizamos las temperaturas máximas y mínimas para cada ciudad y fecha
@@ -151,6 +157,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
               'humidity': entry['main']['humidity'],
               'description': entry['weather'][0]['description'],
               'icon': entry['weather'][0]['icon'],
+              'wind': entry['wind']['speed'],
             });
           }
 
@@ -192,6 +199,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       ? (entry['rain']['3h'] as num).toDouble()
                       : 0.0,
               'icon': entry['weather'][0]['icon'],
+              'wind': entry['wind']['speed']
+              
             };
           } else {
             // Si ya existe la fecha, actualizamos las temperaturas
@@ -215,6 +224,11 @@ class _WeatherScreenState extends State<WeatherScreen> {
             final double newTempMin =
                 entry['main']['temp_min'] is num
                     ? (entry['main']['temp_min'] as num).toDouble()
+                    : 0.0;
+
+                    final double newWind =
+                entry['wind']['speed'] is num
+                    ? (entry['wind']['speed'] as num).toDouble()
                     : 0.0;
 
             // Actualizamos las temperaturas máximas y mínimas si es necesario
@@ -242,6 +256,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       ? (entry['rain']['3h'] as num).toDouble()
                       : 0.0,
               'icon': entry['weather'][0]['icon'],
+              'wind': entry['wind']['speed']
             };
           }
         }
@@ -343,6 +358,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                 onTap: () {
                   // Filtra los datos de previsión por horas
                   final hourlyData = _hourlyForecast.where((entry) => entry['date'] == forecast['date']).toList();
+                  
 
                   // Navega a la nueva pantalla para mostrar la previsión por horas
                   Navigator.push(
@@ -359,7 +375,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       size: 40,
                       color: Colors.blue,
                     ),
-                    title: Text(forecast['date']),
+                    title: Text('${forecast['dayOfWeek']} ${forecast['date']} '),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -384,8 +400,37 @@ class _WeatherScreenState extends State<WeatherScreen> {
   );
 }
 
+
+String getDayOfWeekInSpanish(String date) {
+  // Convertir la fecha de la cadena a un objeto DateTime usando el formato correcto
+  DateTime parsedDate = DateFormat('dd/MM/yyyy').parse(date);
   
-  Widget _buildForecastHours(BuildContext context, String date, List<Map<String, dynamic>> hourlyData) {
+  // Obtener el día de la semana en inglés
+  String dayOfWeek = DateFormat('EEEE').format(parsedDate);
+  
+  // Mapa de días de la semana en inglés a español
+  Map<String, String> daysOfWeekInSpanish = {
+    'Monday': 'Lunes',
+    'Tuesday': 'Martes',
+    'Wednesday': 'Miércoles',
+    'Thursday': 'Jueves',
+    'Friday': 'Viernes',
+    'Saturday': 'Sábado',
+    'Sunday': 'Domingo',
+  };
+
+  // Convertir el día de la semana a español usando el mapa
+  return daysOfWeekInSpanish[dayOfWeek] ?? dayOfWeek; // En caso de no encontrar el día, devuelve el original
+}
+
+
+Widget _buildForecastHours(BuildContext context, String date, List<Map<String, dynamic>> hourlyData) {
+  // Convertir la fecha de la cadena a un objeto DateTime usando el formato correcto
+  DateTime parsedDate = DateFormat('dd/MM/yyyy').parse(date); // Cambio aquí al formato 'dd/MM/yyyy'
+  // Obtener el día de la semana
+  String dayOfWeek = getDayOfWeekInSpanish(date);
+  
+
   return Scaffold(
     appBar: AppBar(
       title: Text('Previsión por horas'),
@@ -394,7 +439,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
         child: Padding(
           padding: const EdgeInsets.only(bottom: 8.0),
           child: Text(
-            'Fecha: $date',
+            'Fecha: $dayOfWeek, $date', // Mostrar el día de la semana y la fecha
             style: TextStyle(fontSize: 16),
             textAlign: TextAlign.center,
           ),
@@ -421,13 +466,14 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       size: 30,
                       color: Colors.blue,
                     ),
-                    title: Text('Hora: $hour:00'),
+                    title: Text('🕒 Hora: $hour'),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('🌡️ Temp: ${hourData['temp'].toStringAsFixed(0)}°C'),
                         Text('🌧️ Prob. Lluvia: ${hourData['pop'].toStringAsFixed(0)}%'),
                         Text('💧 Humedad: ${hourData['humidity']}%'),
+                        Text('💨 Viento: ${(hourData['wind'] * 3.6).toStringAsFixed(0)} Km/h'),
                         Text(
                           '📌 ${hourData['description'][0].toUpperCase()}${hourData['description'].substring(1)}',
                         ),
@@ -445,6 +491,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
 }
 
 
+
  
 
   // Vista de información de hoy (A Implementar)
@@ -457,7 +504,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
  Widget _buildMapView() {
   return FlutterMap(
     options: MapOptions(
-      initialCenter: _cityLatLng, // Coordenadas de la ciudad
+      initialCenter: LatLng(40.4168, -3.7038), // Coordenadas de la ciudad
       initialZoom: 12.0, // Nivel de zoom inicial
       maxZoom: 18.0, // Ajusta el zoom máximo
       minZoom: 5.0,
@@ -511,7 +558,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Visibility(
-              visible: _selectedIndex != 3, // Ocultar en Mapas
+              visible: _selectedIndex == 0, // Ocultar en Mapas
               child: Column(
                 children: [
                   TextField(
@@ -529,8 +576,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   const SizedBox(height: 20),
                   Visibility(
                     visible:
-                        _selectedIndex == 0 ||
-                        _selectedIndex == 1, // Mostrar solo en Días y Horas
+                        _selectedIndex == 0 ,
                     child: ElevatedButton(
                       onPressed: () {
                         if (_city.isNotEmpty) {
