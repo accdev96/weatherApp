@@ -526,32 +526,12 @@ Widget _buildForecastHours(BuildContext context, String date, List<Map<String, d
     ],
   );
 }
-  // Botón para alternar capas
-  void _toggleLayer() {
-    setState(() {
-      _showTempLayer = !_showTempLayer;
-    });
-  }
+  
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Weather App'),
-        backgroundColor: Colors.blue,
-        actions: [
-          IconButton(
-            icon: Icon(
-              _showTempLayer ? Icons.remove : Icons.add,
-              size: 30, // Ajustar el tamaño del icono
-              color:
-                  Colors
-                      .white, // Asegurarse de que el color del icono sea visible
-            ),
-            onPressed: _toggleLayer, // Cambiar capa al presionar
-          ),
-        ],
-      ),
+      
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -614,7 +594,7 @@ Widget _buildForecastHours(BuildContext context, String date, List<Map<String, d
             label: 'Días',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Mapas'),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Mapa'),
         ],
       ),
     );
