@@ -1,5 +1,14 @@
-<application>
-  <meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="AIzaSyAnkQGrkdd6LMSNTcD9v8ProbkKyqTFev8"/>
-</application>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.tuapp">
+
+    <!-- Permisos para el acceso a Internet -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
+    <application
+        android:usesCleartextTraffic="true"
+        android:allowBackup="true"
+        android:theme="@style/Theme.TuApp">
+    </application>
+
+</manifest>

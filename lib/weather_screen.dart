@@ -5,11 +5,14 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:weather_icons/weather_icons.dart' as Weather;
+import 'package:weather_icons/weather_icons.dart';
 
 class WeatherScreen extends StatefulWidget {
   @override
   _WeatherScreenState createState() => _WeatherScreenState();
 }
+
 
 class _WeatherScreenState extends State<WeatherScreen> {
   final TextEditingController _controller = TextEditingController();
@@ -18,13 +21,10 @@ class _WeatherScreenState extends State<WeatherScreen> {
   List<Map<String, dynamic>> _hourlyForecast = [];
 
   String _error = '';
-  LatLng _cityLatLng = LatLng(
-    0.0,
-    0.0,
-  ); // Coordenadas predeterminadas (lat, lng)
+
   int _selectedIndex = 0; // Para controlar el índice del BottomNavigationBar
 
-  bool _showTempLayer =
+ final bool _showTempLayer =
       true; // Controla la visibilidad de la capa de temperatura
 
   // Métodos para obtener el pronóstico por horas y por el día
@@ -34,10 +34,15 @@ class _WeatherScreenState extends State<WeatherScreen> {
     final String url =
         'https://api.openweathermap.org/data/2.5/forecast?q=$_city,ES&appid=$apiKey&units=metric&lang=es';
 
+    
+
+
     try {
       final response = await http.get(Uri.parse(url));
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print("Datos recibidos: $data");
 
         List<Map<String, dynamic>> dailyForecast = [];
         Map<String, dynamic> dailyData = {};
@@ -169,7 +174,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
           groupedForecast.forEach((city, cityForecasts) {
             cityForecasts.forEach((date, forecast) {
-              print(date);
               dailyForecast.add(forecast);
             });
           });
@@ -276,7 +280,6 @@ class _WeatherScreenState extends State<WeatherScreen> {
                 ? (data['city']['coord']['lon'] as int).toDouble()
                 : data['city']['coord']['lon'];
 
-        _cityLatLng = LatLng(lat, lon);
 
         setState(() {
           _forecast = dailyForecast;
@@ -310,7 +313,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
       case 0: // Días
         return _buildForecastView();
       case 1: // Inicio
-        return _buildTodayView();
+        return _buildTodayView(_forecast, _city);
       case 2: // Mapas
         return _buildMapView();
       default:
@@ -320,117 +323,187 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   IconData _getWeatherIcon(String iconCode) {
     Map<String, IconData> iconMap = {
-      '01d': Icons.wb_sunny,
-      '01n': Icons.nightlight_round,
-      '02d': Icons.cloud,
-      '02n': Icons.cloud,
-      '03d': Icons.cloud,
-      '03n': Icons.cloud,
-      '04d': Icons.cloud_outlined,
-      '04n': Icons.cloud_outlined,
-      '09d': Icons.water_drop,
-      '09n': Icons.water_drop,
-      '10d': Icons.umbrella,
-      '10n': Icons.umbrella,
-      '11d': Icons.thunderstorm,
-      '11n': Icons.thunderstorm,
-      '13d': Icons.ac_unit,
-      '13n': Icons.ac_unit,
-      '50d': Icons.foggy,
-      '50n': Icons.foggy,
+      '01d': Weather.WeatherIcons.day_sunny, // ☀️ Día soleado
+      '01n': Weather.WeatherIcons.night_clear, // 🌙 Noche despejada
+      '02d': Weather.WeatherIcons.day_cloudy, // 🌤️ Parcialmente nublado (día)
+      '02n':
+          Weather
+              .WeatherIcons
+              .night_alt_cloudy, // 🌥️ Parcialmente nublado (noche)
+      '03d': Weather.WeatherIcons.cloud, // ☁️ Nublado
+      '03n': Weather.WeatherIcons.cloud,
+      '04d': Weather.WeatherIcons.cloudy, // ☁️☁️ Nublado denso
+      '04n': Weather.WeatherIcons.cloudy,
+      '09d': Weather.WeatherIcons.showers, // 🌦️ Lluvias ligeras
+      '09n': Weather.WeatherIcons.showers,
+      '10d': Weather.WeatherIcons.rain, // 🌧️ Lluvia
+      '10n': Weather.WeatherIcons.rain,
+      '11d': Weather.WeatherIcons.thunderstorm, // ⛈️ Tormenta
+      '11n': Weather.WeatherIcons.thunderstorm,
+      '13d': Weather.WeatherIcons.snow, // ❄️ Nieve
+      '13n': Weather.WeatherIcons.snow,
+      '50d': Weather.WeatherIcons.fog, // 🌫️ Niebla
+      '50n': Weather.WeatherIcons.fog,
     };
 
     return iconMap[iconCode] ?? Icons.error;
   }
 
-  // Construir vista de pronóstico diario
   Widget _buildForecastView() {
-    return Container(
-      color: Color.fromARGB(255, 104, 192, 255), // 🎨 Fondo azul claro
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: <Widget>[
-          if (_error.isNotEmpty)
-            Text(_error, style: TextStyle(color: Colors.red, fontSize: 18)),
-          if (_forecast.isNotEmpty)
-            Expanded(
-              child: ListView.builder(
-                itemCount: _forecast.length,
-                itemBuilder: (context, index) {
-                  final forecast = _forecast[index];
-                  final iconCode = forecast['icon'] ?? '';
+  return Container(
+    color: Color(0xFFFef7FF), // 🎨 Fondo azul claro
+    padding: const EdgeInsets.all(16.0),
+    child: Column(
+      children: <Widget>[
+        if (_error.isNotEmpty)
+          Text(_error, style: TextStyle(color: Colors.red, fontSize: 18)),
+        if (_forecast.isNotEmpty)
+          Expanded(
+            child: ListView.builder(
+              itemCount: _forecast.length,
+              itemBuilder: (context, index) {
+                final forecast = _forecast[index];
+                final iconCode = forecast['icon'] ?? ''; // Obtener el código del icono
 
-                  return GestureDetector(
-                    onTap: () {
-                      // Filtra los datos de previsión por horas
-                      final hourlyData =
-                          _hourlyForecast
-                              .where(
-                                (entry) => entry['date'] == forecast['date'],
-                              )
-                              .toList();
+                return GestureDetector(
+                  onTap: () {
+                    // Filtra los datos de previsión por horas
+                    final hourlyData = _hourlyForecast
+                        .where(
+                          (entry) => entry['date'] == forecast['date'],
+                        )
+                        .toList();
 
-                      // Navega a la nueva pantalla para mostrar la previsión por horas
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => _buildForecastHours(
-                                context,
-                                forecast['date'],
-                                hourlyData,
-                              ),
+                    // Navega a la nueva pantalla para mostrar la previsión por horas
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => _buildForecastHours(
+                          context,
+                          forecast['date'],
+                          hourlyData,
                         ),
-                      );
-                    },
-                    child: Card(
-                      color: Colors.white, // Fondo blanco para el Card
-                      elevation: 3, // Sombra para dar profundidad
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          12,
-                        ), // Bordes redondeados
                       ),
-                      child: ListTile(
-                        leading: Icon(
-                          _getWeatherIcon(iconCode),
-                          size: 40,
-                          color: Colors.blue,
-                        ),
-                        title: Text(
-                          '${forecast['dayOfWeek']} ${forecast['date']}',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '☀️ Máx: ${forecast['temp_max'].toStringAsFixed(0)}°C',
-                            ),
-                            Text(
-                              '🌡️ Mín: ${forecast['temp_min'].toStringAsFixed(0)}°C',
-                            ),
-                            Text('🌧️ Prob. Lluvia: ${forecast['pop']}%'),
-                            Text('💧 Humedad: ${forecast['humidity']}%'),
-                            Text(
-                              '📌 ${forecast['description'][0].toUpperCase()}${forecast['description'].substring(1)}',
-                            ),
-                          ],
-                        ),
-                        trailing: Text(
-                          '${forecast['temp'].toStringAsFixed(0)}°C',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                    );
+                  },
+                  child: Card(
+                    color: Colors.white, // Fondo blanco para el Card
+                    elevation: 3, // Sombra para dar profundidad
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12), // Bordes redondeados
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Día y fecha
+                          Text(
+                            '${forecast['dayOfWeek']} ${forecast['date']}',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 10),
+
+                          // Información de la temperatura máxima
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.wb_sunny, // Icono para el día soleado
+                                size: 20,
+                                color: Colors.orange,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Máx: ${forecast['temp_max'].toStringAsFixed(0)}°C',
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.cloud, // Icono de nubes
+                                size: 20,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Mín: ${forecast['temp_min'].toStringAsFixed(0)}°C',
+                              ),
+                            ],
+                          ),
+
+                          // Row con probabilidad de lluvia y temperatura actual
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.beach_access, // Icono de lluvia
+                                    size: 20,
+                                    color: Colors.blue,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text('Lluvia: ${forecast['pop']}%'),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.thermostat_outlined, // Icono de termómetro
+                                    size: 20,
+                                    color: Colors.red,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Temp: ${forecast['temp'].toStringAsFixed(0)}°C',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+
+                          // Información de la humedad y descripción
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.water_drop, // Icono de humedad
+                                size: 20,
+                                color: Colors.blueAccent,
+                              ),
+                              SizedBox(width: 8),
+                              Text('Humedad: ${forecast['humidity']}%'),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.description, // Icono de descripción
+                                size: 20,
+                                color: Colors.black,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Descripción: ${forecast['description'][0].toUpperCase()}${forecast['description'].substring(1)}',
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
-        ],
-      ),
-    );
-  }
+          ),
+      ],
+    ),
+  );
+}
+
+
+
+
 
   String getDayOfWeekInSpanish(String date) {
     // Convertir la fecha de la cadena a un objeto DateTime usando el formato correcto
@@ -459,113 +532,179 @@ class _WeatherScreenState extends State<WeatherScreen> {
     BuildContext context,
     String date,
     List<Map<String, dynamic>> hourlyData,
-  ) {
-    // Convertir la fecha de la cadena a un objeto DateTime usando el formato correcto
-    DateTime parsedDate = DateFormat('dd/MM/yyyy').parse(date);
-    // Obtener el día de la semana
-    String dayOfWeek = getDayOfWeekInSpanish(date);
+) {
+  // Convertir la fecha de la cadena a un objeto DateTime usando el formato correcto
+  DateTime parsedDate = DateFormat('dd/MM/yyyy').parse(date);
+  // Obtener el día de la semana
+  String dayOfWeek = getDayOfWeekInSpanish(date);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Previsión por horas'),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(30),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Text(
-              'Fecha: $dayOfWeek, $date',
-              style: TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
+  return Scaffold(
+    appBar: AppBar(
+      title: Text(
+        'Previsión por horas',
+        style: GoogleFonts.raleway(fontWeight: FontWeight.bold), // Fuente moderna
+      ),
+      bottom: PreferredSize(
+        preferredSize: Size.fromHeight(30),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: Text(
+            'Fecha: $dayOfWeek, $date',
+            style: GoogleFonts.raleway(fontSize: 16),
+            textAlign: TextAlign.center,
           ),
         ),
       ),
-      body: Container(
-        color: Color.fromARGB(255, 56, 160, 235), // 🎨 Fondo azul claro
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ListView.builder(
-                itemCount: hourlyData.length,
-                itemBuilder: (context, index) {
-                  final hourData = hourlyData[index];
-                  final iconCode = hourData['icon'] ?? '';
-                  final hour = hourData['hour'];
-
-                  return Card(
-                    color: Colors.white, // Fondo blanco para el Card
-                    elevation: 3, // Sombra para dar efecto de profundidad
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        12,
-                      ), // Bordes redondeados
-                    ),
-                    child: ListTile(
-                      leading: Icon(
-                        _getWeatherIcon(iconCode),
-                        size: 30,
-                        color: Colors.blue,
-                      ),
-                      title: Text(
-                        '🕒 Hora: $hour',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '🌡️ Temp: ${hourData['temp'].toStringAsFixed(0)}°C',
-                          ),
-                          Text(
-                            '🌧️ Prob. Lluvia: ${hourData['pop'].toStringAsFixed(0)}%',
-                          ),
-                          Text('💧 Humedad: ${hourData['humidity']}%'),
-                          Text(
-                            '💨 Viento: ${(hourData['wind'] * 3.6).toStringAsFixed(0)} Km/h',
-                          ),
-                          Text(
-                            '📌 ${hourData['description'][0].toUpperCase()}${hourData['description'].substring(1)}',
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
+    ),
+    body: Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)], // Gradiente azul moderno
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
       ),
-    );
-  }
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: hourlyData.length,
+              itemBuilder: (context, index) {
+                final hourData = hourlyData[index];
+                final iconCode = hourData['icon'] ?? '';
+                final hour = hourData['hour'];
 
-  Widget _buildTodayView() {
+                return Card(
+                  color: Colors.white, // Fondo blanco para el Card
+                  elevation: 5, // Sombra más sutil
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15), // Bordes más redondeados
+                  ),
+                  child: ListTile(
+                    leading: Icon(
+                      _getWeatherIcon(iconCode),
+                      size: 30,
+                      color: Colors.blueAccent, // Color azul para los íconos
+                    ),
+                    title: Text(
+                      '🕒 Hora: $hour',
+                      style: GoogleFonts.raleway(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16, // Tamaño de fuente más grande
+                      ),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.thermostat_outlined, // Icono de temperatura
+                              size: 20,
+                              color: Colors.red,
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              '${hourData['temp'].toStringAsFixed(0)}°C',
+                              style: GoogleFonts.raleway(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Icon(
+                              WeatherIcons.rain, // Icono de lluvia
+                              size: 20,
+                              color: Colors.blue,
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              'Prob. Lluvia: ${hourData['pop'].toStringAsFixed(0)}%',
+                              style: GoogleFonts.raleway(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.water_drop, // Icono de humedad
+                              size: 20,
+                              color: Colors.blueAccent,
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              'Humedad: ${hourData['humidity']}%',
+                              style: GoogleFonts.raleway(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.air, // Icono de viento
+                              size: 20,
+                              color: Colors.green,
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              'Viento: ${(hourData['wind'] * 3.6).toStringAsFixed(0)} Km/h',
+                              style: GoogleFonts.raleway(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on, // Icono de ubicación
+                              size: 20,
+                              color: Colors.orange,
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              '${hourData['description'][0].toUpperCase()}${hourData['description'].substring(1)}',
+                              style: GoogleFonts.raleway(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+  Widget _buildTodayView(List<Map<String, dynamic>> _forecast, String _city) {
     final today = DateTime.now();
     final todayDateString =
         '${today.day.toString().padLeft(2, '0')}/${today.month.toString().padLeft(2, '0')}/${today.year}';
-
-    final cityActual = _city;
 
     final todayForecast =
         _forecast
             .where((forecast) => forecast['date'] == todayDateString)
             .toList();
 
-    if (todayForecast.isEmpty) {
+    if (todayForecast.isEmpty || _city.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.cloud_off, size: 80, color: Colors.grey),
+            Icon(Icons.cloud_off, size: 100, color: Colors.grey.shade600),
             SizedBox(height: 10),
             Text(
-              "No forecast available for today",
+              "Debe seleccionar una localización en la pantalla de 'Días'",
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey,
+                color: Colors.grey.shade600,
               ),
             ),
           ],
@@ -581,116 +720,119 @@ class _WeatherScreenState extends State<WeatherScreen> {
       height: double.infinity,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color.fromARGB(255, 84, 158, 223),
-            Colors.blue.shade900,
-          ],
+          colors: [Color(0xFF4A90E2), Color(0xFF17375E)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
       ),
       child: Column(
         children: <Widget>[
-          // Texto superior con icono
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
-            child: Column(
-              children: [
-                Icon(_getWeatherIcon(iconCode), size: 80, color: Colors.white),
-                Text(
-                  '${forecast['dayOfWeek']} ${forecast['date']}',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  '📌 ${cityActual[0].toUpperCase()}${cityActual.substring(1)}',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white70,
-                  ),
+          SizedBox(height: 40),
+          Icon(_getWeatherIcon(iconCode), size: 100, color: Colors.white),
+          SizedBox(height: 8),
+          Text(
+            '${forecast['dayOfWeek']} ${forecast['date']}',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            '${_city[0].toUpperCase()}${_city.substring(1)}',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w500,
+              color: Colors.white70,
+            ),
+          ),
+          Spacer(),
+          Text(
+            '${forecast['temp'].toStringAsFixed(0)}°C',
+            style: GoogleFonts.montserrat(
+              fontSize: 80,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  blurRadius: 5,
+                  color: Colors.black45,
+                  offset: Offset(2, 2),
                 ),
               ],
             ),
           ),
-
-          Spacer(), // Empuja la fecha y temperatura al centro
-          // Fecha y temperatura en el centro
-          Column(
-            children: [
-              SizedBox(height: 8),
-              Text(
-                '${forecast['temp'].toStringAsFixed(0)}°C',
-                style: GoogleFonts.adamina(
-                  fontSize: 70,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      blurRadius: 5,
-                      color: Colors.black45,
-                      offset: Offset(2, 2),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          Spacer(), // Empuja el Card hacia abajo
-          // Card en la parte inferior con detalles adicionales
+          Spacer(),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Card(
-              shape: RoundedRectangleBorder(
+            child: AnimatedContainer(
+              duration: Duration(milliseconds: 400),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
               ),
-              elevation: 8,
-              shadowColor: Colors.black54,
-              color: Colors.white,
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '☀️ Máx: ${forecast['temp_max'].toStringAsFixed(0)}°C',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    _infoRow(
+                      WeatherIcons.thermometer,
+                      'Máx',
+                      '${forecast['temp_max'].toStringAsFixed(0)}°C',
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      '🌡️ Mín: ${forecast['temp_min'].toStringAsFixed(0)}°C',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    _infoRow(
+                      WeatherIcons.snowflake_cold,
+                      'Mín',
+                      '${forecast['temp_min'].toStringAsFixed(0)}°C',
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      '🌧️ Prob. Lluvia: ${forecast['pop']}%',
-                      style: TextStyle(fontSize: 16),
+                    _infoRow(
+                      WeatherIcons.raindrops,
+                      'Lluvia',
+                      '${forecast['pop']}%',
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      '💧 Humedad: ${forecast['humidity']}%',
-                      style: TextStyle(fontSize: 16),
+                    _infoRow(
+                      WeatherIcons.humidity,
+                      'Humedad',
+                      '${forecast['humidity']}%',
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      '💨 Viento: ${(forecast['wind'] * 3.6).toStringAsFixed(0)} Km/h',
-                      style: TextStyle(fontSize: 16),
+                    _infoRow(
+                      WeatherIcons.strong_wind,
+                      'Viento',
+                      '${(forecast['wind'] * 3.6).toStringAsFixed(0)} Km/h',
                     ),
                   ],
                 ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 20),
+              SizedBox(width: 10),
+              Text(label, style: TextStyle(color: Colors.white, fontSize: 16)),
+            ],
+          ),
+          Text(value, style: TextStyle(color: Colors.white, fontSize: 16)),
         ],
       ),
     );
@@ -733,10 +875,12 @@ class _WeatherScreenState extends State<WeatherScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            const SizedBox(
+              height: 40,
+            ), // Empuja el buscador un poco hacia abajo
             Visibility(
-              visible: _selectedIndex == 0, // Ocultar en Mapas
+              visible: _selectedIndex == 0,
               child: Column(
                 children: [
                   TextField(
@@ -752,37 +896,31 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-                  Visibility(
-                    visible: _selectedIndex == 0,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (_city.isNotEmpty) {
-                          _fetchWeather();
-                        }
-                      },
-                      child: Text('Obtener pronóstico semanal'),
-                    ),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_city.isNotEmpty) {
+                        _fetchWeather();
+                      }
+                    },
+                    child: Text('Obtener pronóstico semanal'),
                   ),
                   const SizedBox(height: 20),
                 ],
               ),
             ),
-            Expanded(child: _getCurrentView()), // Mostrar la vista actual
+            Expanded(child: _getCurrentView()), // Mantiene la vista expandida
           ],
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        backgroundColor: Colors.blue, // Color de fondo del menú
-        selectedItemColor: Colors.white, // Color del icono y texto seleccionado
-        unselectedItemColor: Colors.white70, // Color de iconos no seleccionados
-        showUnselectedLabels:
-            true, // Mostrar etiquetas en elementos no seleccionados
-        type:
-            BottomNavigationBarType
-                .fixed, // Evita animaciones molestas en más de 3 ítems
-        elevation: 10, // Agrega sombra al menú
+        backgroundColor: Colors.blue,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white70,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+        elevation: 10,
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today),

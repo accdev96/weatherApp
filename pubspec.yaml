@@ -43,6 +43,7 @@ dependencies:
   flutter_map: ^8.1.1
   latlong2: ^0.9.1
   google_fonts: ^6.2.1
+  weather_icons: ^3.0.0
 
 dev_dependencies:
   flutter_test:

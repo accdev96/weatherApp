@@ -11,9 +11,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Weather App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: SplashScreen(), // Cambia la pantalla inicial a SplashScreen
     );
   }
@@ -24,69 +22,83 @@ class SplashScreen extends StatefulWidget {
   _SplashScreenState createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    
-    // Inicializamos el controlador de la animación
+
     _controller = AnimationController(
       duration: Duration(seconds: 2), // Duración de la animación
       vsync: this,
-    )..repeat(); // Hace que la animación se repita indefinidamente
+    )..repeat();
 
-    // Simula tarea asíncrona, por ejemplo, cargar datos de la API
     _loadData();
+    
   }
 
-  // Simula tarea asíncrona, por ejemplo, cargar datos de la API
   Future<void> _loadData() async {
-    await Future.delayed(Duration(seconds: 3)); // Espera 3 segundos (puedes cambiarlo)
-    // Después de que termine la tarea, navega a la pantalla WeatherScreen
+    await Future.delayed(
+      Duration(seconds: 3),
+    ); 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => WeatherScreen()), // Navega a WeatherScreen
+      MaterialPageRoute(
+        builder: (context) => WeatherScreen(),
+      ), 
     );
   }
 
   @override
   void dispose() {
-    _controller.dispose(); // Limpiar el controlador de animación
+    _controller.dispose(); 
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.blue, // Puedes personalizar el color de fondo
+      backgroundColor: Colors.blue, 
+
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Aquí mostramos la imagen de carga
             Image.asset(
-              'assets/images/w3.jpg', // Ruta de tu imagen
-              width: 300, // Tamaño de la imagen
-              height: 300, // Tamaño de la imagen
+              'assets/images/w3.jpg',
+              width:
+                  MediaQuery.of(context).size.width *
+                  0.6, 
+              height:
+                  MediaQuery.of(context).size.height *
+                  0.3, 
             ),
-            SizedBox(height: 20), // Espaciado entre la imagen y el ícono
+            SizedBox(height: 20), 
             RotationTransition(
-              turns: _controller, // Aplicar la rotación con el controlador
+              turns: _controller, 
               child: Icon(
-                Icons.wb_sunny, // Ícono de sol
-                size: 50, // Tamaño del ícono
-                color: Colors.yellow, // Color del ícono
+                Icons.wb_sunny, 
+                size: 50, 
+                color: Colors.yellow, 
               ),
             ),
-            SizedBox(height: 20), // Espaciado entre el ícono y el texto
+            SizedBox(height: 20), 
             Text(
-              'El Tiempo', // Texto debajo del indicador
+              'Pronóstico del Clima', 
               style: GoogleFonts.raleway(
-                fontSize: 24, // Tamaño de la fuente
-                fontWeight: FontWeight.bold, // Negrita
-                color: Colors.white, // Color del texto
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              'Obtén el clima actualizado para tu ubicación.',
+              style: GoogleFonts.raleway(
+                fontSize: 16,
+                fontWeight: FontWeight.normal,
+                color: Colors.white.withOpacity(0.7),
               ),
             ),
           ],
